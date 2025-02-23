@@ -21,7 +21,7 @@ async function generateVideo() {
         formData.append(`image_${index}`, file);
     });
 
-    const response = await fetch("http://127.0.0.1:5000/generate-video", {
+    const response = await fetch("https://text-to-video-platform.onrender.com/generate-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
