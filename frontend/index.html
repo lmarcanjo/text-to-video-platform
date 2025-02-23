@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Video</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Criar Vídeo a Partir de Texto</h1>
+        <textarea id="textInput" placeholder="Digite o texto aqui..." rows="5" cols="50"></textarea><br>
+        <input type="file" id="imageUpload" accept="image/*" multiple><br>
+        <label>
+            <input type="checkbox" id="useGeneratedImages"> Gerar imagens automaticamente
+        </label><br>
+        <button onclick="generateVideo()">Gerar Vídeo</button>
+        <div id="loading" style="display:none;">Gerando vídeo...</div>
+        <br><br>
+        <video id="videoOutput" controls style="display:none;"></video>
+        <a id="shareButton" href="#" style="display:none;">Compartilhar no Twitter</a>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
