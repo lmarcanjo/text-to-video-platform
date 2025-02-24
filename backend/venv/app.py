@@ -1,16 +1,19 @@
 from flask import Flask, request, jsonify
 from gtts import gTTS
-from moviepy import ImageClip, AudioFileClip, CompositeAudioClip
+from moviepy import ImageClip, AudioFileClip, concatenate_videoclips
 import os
 import requests
+import logging
 from googletrans import Translator
-from transformers import pipeline
 
 app = Flask(__name__)
 
+# Configurar logs
+logging.basicConfig(level=logging.INFO)
+
 # Diretório para arquivos temporários
-ASSETS_DIR = "../assets"
-os.makedirs(ASSETS_DIR, exist_ok=True)
+import tempfile
+ASSETS_DIR = tempfile.mkdtemp()
 
 # Tradução automática
 def translate_text(text, target_lang="pt"):
@@ -25,41 +28,69 @@ def generate_image(prompt):
         return response.json()["images"][0]
     return None
 
+# Rota padrão
+@app.route('/')
+def home():
+    return "Bem-vindo à API de Geração de Vídeos! Use a rota /generate-video para criar vídeos."
+
+# Rota para gerar vídeo
 @app.route('/generate-video', methods=['POST'])
 def generate_video():
     data = request.json
     text = data.get("text", "")
-    image_url = data.get("image_url", "")
-    use_generated_image = data.get("use_generated_image", False)
+    image_urls = data.get("image_urls", [])
+    use_generated_images = data.get("use_generated_images", False)
 
-    if not text:
-        return jsonify({"error": "Texto é obrigatório"}), 400
+    if not text or (not image_urls and not use_generated_images):
+        logging.error("Texto ou imagens ausentes.")
+        return jsonify({"error": "Texto e imagens são obrigatórios"}), 400
 
-    # Traduzir texto (opcional)
-    translated_text = translate_text(text)
+    try:
+        # Traduzir texto
+        translated_text = translate_text(text)
+        logging.info(f"Texto traduzido: {translated_text}")
 
-    # Gerar áudio
-    audio_path = os.path.join(ASSETS_DIR, "audio.mp3")
-    tts = gTTS(text=translated_text, lang='pt')
-    tts.save(audio_path)
+        # Gerar áudio
+        audio_path = os.path.join(ASSETS_DIR, "audio.mp3")
+        tts = gTTS(text=translated_text, lang='pt')
+        tts.save(audio_path)
+        logging.info("Áudio gerado com sucesso.")
 
-    # Gerar ou baixar imagem
-    image_path = os.path.join(ASSETS_DIR, "image.jpg")
-    if use_generated_image:
-        image_url = generate_image(translated_text)
-        if not image_url:
-            return jsonify({"error": "Falha ao gerar imagem"}), 500
-    with open(image_path, "wb") as f:
-        f.write(requests.get(image_url).content)
+        # Baixar imagens
+        image_paths = []
+        for i, image_url in enumerate(image_urls):
+            image_path = os.path.join(ASSETS_DIR, f"image_{i}.jpg")
+            if use_generated_images:
+                image_url = generate_image(translated_text)
+                if not image_url:
+                    logging.error("Falha ao gerar imagem.")
+                    return jsonify({"error": "Falha ao gerar imagem"}), 500
+            with open(image_path, "wb") as f:
+                f.write(requests.get(image_url).content)
+            image_paths.append(image_path)
+        logging.info("Imagens baixadas com sucesso.")
 
-    # Criar vídeo
-    video_path = os.path.join(ASSETS_DIR, "output.mp4")
-    audio_clip = AudioFileClip(audio_path)
-    img_clip = ImageClip(image_path).set_duration(audio_clip.duration)
-    video = img_clip.set_audio(audio_clip)
-    video.write_videofile(video_path, fps=24)
+        # Criar vídeo
+        video_clips = []
+        audio_clip = AudioFileClip(audio_path)
+        duration_per_image = audio_clip.duration / len(image_paths)
 
-    return jsonify({"video_url": "/assets/output.mp4"})
+        for image_path in image_paths:
+            img_clip = ImageClip(image_path).set_duration(duration_per_image)
+            video_clips.append(img_clip)
+
+        final_video = concatenate_videoclips(video_clips)
+        final_video = final_video.set_audio(audio_clip)
+        video_path = os.path.join(ASSETS_DIR, "output.mp4")
+        final_video.write_videofile(video_path, fps=24)
+        logging.info("Vídeo gerado com sucesso.")
+
+        return jsonify({"video_url": "/assets/output.mp4"})
+    except Exception as e:
+        logging.error(f"Erro ao gerar vídeo: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get('PORT', 5000))  # Usa a porta do Render ou 5000 como padrão
+    app.run(host='0.0.0.0', port=port, debug=True)
