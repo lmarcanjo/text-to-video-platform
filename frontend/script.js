@@ -2,7 +2,6 @@ const imageUpload = document.getElementById("imageUpload");
 const useGeneratedImages = document.getElementById("useGeneratedImages");
 const loading = document.getElementById("loading");
 const videoOutput = document.getElementById("videoOutput");
-const shareButton = document.getElementById("shareButton");
 
 async function generateVideo() {
     const text = document.getElementById("textInput").value;
@@ -16,17 +15,14 @@ async function generateVideo() {
 
     loading.style.display = "block";
 
-    const formData = new FormData();
-    imageFiles.forEach((file, index) => {
-        formData.append(`image_${index}`, file);
-    });
+    const imageUrls = imageFiles.map(file => URL.createObjectURL(file));
 
     const response = await fetch("https://text-to-video-platform.onrender.com/generate-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             text,
-            image_urls: imageFiles.map(file => URL.createObjectURL(file)),
+            image_urls: imageUrls,
             use_generated_images: useGenerated,
         }),
     });
@@ -37,9 +33,7 @@ async function generateVideo() {
     if (data.video_url) {
         videoOutput.src = data.video_url;
         videoOutput.style.display = "block";
-        shareButton.href = `https://twitter.com/intent/tweet?url=${encodeURIComponent(data.video_url)}`;
-        shareButton.style.display = "inline-block";
     } else {
-        alert("Erro ao gerar vídeo.");
+        alert("Erro ao gerar vídeo: " + data.error);
     }
 }
