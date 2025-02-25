@@ -1,13 +1,14 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from gtts import gTTS
 from moviepy import ImageClip, AudioFileClip, concatenate_videoclips
 import os
 import requests
 import logging
 from googletrans import Translator
+from flask_cors import CORS
 
 app = Flask(__name__)
-
+CORS(app)  # Habilita CORS para todas as rotas
 # Configurar logs
 logging.basicConfig(level=logging.INFO)
 
@@ -85,7 +86,7 @@ def generate_video():
         final_video.write_videofile(video_path, fps=24)
         logging.info("Vídeo gerado com sucesso.")
 
-        return jsonify({"video_url": "/assets/output.mp4"})
+        return send_file(video_path, mimetype="video/mp4", as_attachment=True)
     except Exception as e:
         logging.error(f"Erro ao gerar vídeo: {str(e)}")
         return jsonify({"error": str(e)}), 500
