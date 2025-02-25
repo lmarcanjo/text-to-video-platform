@@ -1,6 +1,7 @@
 Flask==2.3.2
-moviepy==1.0.3
+moviepy
 gTTS==2.3.1
 requests==2.31.0
 transformers==4.30.2
 googletrans==4.0.0-rc1
+Flask-CORS==3.0.10
