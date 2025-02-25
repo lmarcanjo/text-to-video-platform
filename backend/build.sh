@@ -4,4 +4,6 @@
 python -m pip install --upgrade pip
 
 # Instala dependências usando wheels pré-compilados
-pip install --prefer-binary -r backend/requirements.txt
+pip install -r requirements.txt
+
+python app.py
