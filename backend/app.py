@@ -5,7 +5,7 @@ import os
 import requests
 import logging
 from googletrans import Translator
-from flask_cors import CORS
+from flask import CORS
 
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas as rotas
