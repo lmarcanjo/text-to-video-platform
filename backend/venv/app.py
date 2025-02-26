@@ -1,20 +1,27 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, make_response
 from gtts import gTTS
-from moviepy import ImageClip, AudioFileClip, concatenate_videoclips
+from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 import os
 import requests
 import logging
 from googletrans import Translator
-from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Habilita CORS para todas as rotas
+
 # Configurar logs
 logging.basicConfig(level=logging.INFO)
 
 # Diretório para arquivos temporários
 import tempfile
 ASSETS_DIR = tempfile.mkdtemp()
+
+# Middleware para adicionar cabeçalhos CORS
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"  # Permite qualquer origem
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
 
 # Tradução automática
 def translate_text(text, target_lang="pt"):
@@ -47,6 +54,7 @@ def generate_video():
         return jsonify({"error": "Texto e imagens são obrigatórios"}), 400
 
     try:
+        logging.info("Iniciando geração de vídeo...")
         # Traduzir texto
         translated_text = translate_text(text)
         logging.info(f"Texto traduzido: {translated_text}")
@@ -62,16 +70,19 @@ def generate_video():
         for i, image_url in enumerate(image_urls):
             image_path = os.path.join(ASSETS_DIR, f"image_{i}.jpg")
             if use_generated_images:
+                logging.info("Gerando imagem com IA...")
                 image_url = generate_image(translated_text)
                 if not image_url:
                     logging.error("Falha ao gerar imagem.")
                     return jsonify({"error": "Falha ao gerar imagem"}), 500
+            logging.info(f"Baixando imagem {i} de URL: {image_url}")
             with open(image_path, "wb") as f:
                 f.write(requests.get(image_url).content)
             image_paths.append(image_path)
         logging.info("Imagens baixadas com sucesso.")
 
         # Criar vídeo
+        logging.info("Criando vídeo...")
         video_clips = []
         audio_clip = AudioFileClip(audio_path)
         duration_per_image = audio_clip.duration / len(image_paths)
@@ -86,6 +97,7 @@ def generate_video():
         final_video.write_videofile(video_path, fps=24)
         logging.info("Vídeo gerado com sucesso.")
 
+        # Retornar o vídeo como um arquivo binário
         return send_file(video_path, mimetype="video/mp4", as_attachment=True)
     except Exception as e:
         logging.error(f"Erro ao gerar vídeo: {str(e)}")
