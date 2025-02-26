@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, make_response
 from gtts import gTTS
-from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
+from moviepy import ImageClip, AudioFileClip, concatenate_videoclips
 import os
 import requests
 import logging
