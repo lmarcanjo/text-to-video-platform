@@ -5,6 +5,7 @@ from gradio_client import Client
 from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, CompositeAudioClip
 from pydub.generators import Sine
 from pydub import AudioSegment
+import requests
 import tempfile
 
 app = Flask(__name__)
@@ -59,50 +60,85 @@ def generate_3d_from_image(image_url):
         logging.error(f"Falha ao gerar 3D: {str(e)}")
         return None
 
+# Geração de narração
+def generate_narration(text, lang="pt"):
+    logging.info("Gerando narração...")
+    try:
+        tts = gTTS(text=text, lang=lang)
+        narration_path = os.path.join(ASSETS_DIR, "narration.mp3")
+        tts.save(narration_path)
+        logging.info("Narração gerada com sucesso.")
+        return narration_path
+    except Exception as e:
+        logging.error(f"Falha ao gerar narração: {str(e)}")
+        return None
+
+# Criação de música simples
+def generate_music(description, duration=60):
+    logging.info("Gerando música...")
+    try:
+        sine_wave = Sine(440).to_audio_segment(duration=duration * 1000)  # Som de 440Hz (Lá)
+        music_path = os.path.join(ASSETS_DIR, "music.mp3")
+        sine_wave.export(music_path, format="mp3")
+        logging.info("Música gerada com sucesso.")
+        return music_path
+    except Exception as e:
+        logging.error(f"Falha ao gerar música: {str(e)}")
+        return None
+
 # Rota para gerar vídeo
 @app.route('/generate-video', methods=['POST'])
 def generate_video():
     try:
+        logging.info("Recebendo requisição...")
         data = request.json
         script = data.get("script", "")
         style = data.get("style", "realistic")
         include_narration = data.get("include_narration", True)
         include_music = data.get("include_music", True)
-        include_3d = data.get("include_3d", False)  # Nova opção para incluir 3D
+        include_3d = data.get("include_3d", False)
 
         if not script:
             logging.error("Roteiro ausente.")
             return jsonify({"error": "Roteiro é obrigatório"}), 400
 
-        # Dividir o roteiro em cenas
+        logging.info("Dividindo roteiro em cenas...")
         scenes = script.split("\n\n")  # Cada cena é separada por duas quebras de linha
         image_paths = []
         audio_clips = []
 
         for i, scene in enumerate(scenes):
+            logging.info(f"Processando cena {i + 1}: {scene}")
+
             # Gerar imagem para cada cena
+            logging.info("Gerando imagem...")
             image_url = generate_image(scene, style=style)
             if not image_url:
                 return jsonify({"error": "Falha ao gerar imagem"}), 500
-            
+
             # Transformar imagem em 3D (opcional)
             if include_3d:
+                logging.info("Transformando imagem em 3D...")
                 image_url = generate_3d_from_image(image_url)
                 if not image_url:
                     return jsonify({"error": "Falha ao gerar 3D"}), 500
 
+            # Baixar imagem
+            logging.info("Baixando imagem...")
             image_path = os.path.join(ASSETS_DIR, f"image_{i}.jpg")
             with open(image_path, "wb") as f:
                 f.write(requests.get(image_url).content)
             image_paths.append(image_path)
 
-            # Gerar narração para cada cena
+            # Gerar narração (opcional)
             if include_narration:
+                logging.info("Gerando narração...")
                 narration_path = generate_narration(scene)
                 audio_clip = AudioFileClip(narration_path)
                 audio_clips.append(audio_clip)
 
         # Criar vídeo
+        logging.info("Montando vídeo...")
         video_clips = []
         for i, image_path in enumerate(image_paths):
             img_clip = ImageClip(image_path).set_duration(audio_clips[i].duration if include_narration else 5)
@@ -111,12 +147,14 @@ def generate_video():
         final_video = concatenate_videoclips(video_clips)
         final_audio = CompositeAudioClip(audio_clips) if include_narration else None
 
-        # Adicionar música
+        # Adicionar música (opcional)
         if include_music:
+            logging.info("Gerando música...")
             music_path = generate_music("música épica", duration=60)
             music_clip = AudioFileClip(music_path)
             final_audio = CompositeAudioClip([final_audio, music_clip]) if final_audio else music_clip
 
+        logging.info("Renderizando vídeo final...")
         final_video = final_video.set_audio(final_audio)
         video_path = os.path.join(ASSETS_DIR, "output.mp4")
         final_video.write_videofile(video_path, fps=24)
