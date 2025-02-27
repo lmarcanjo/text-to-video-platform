@@ -105,5 +105,5 @@ def generate_video():
 
 if __name__ == '__main__':
     import os
-    port = int(os.environ.get('PORT', 5000))  # Usa a porta do Render ou 5000 como padrão
-    app.run(host='0.0.0.0', port=port, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)  # Desativa o modo de depuração
